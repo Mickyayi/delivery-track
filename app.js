@@ -1,13 +1,13 @@
 // API配置 - 使用Worker URL
-const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // 稍后替换为实际Worker URL
+const API_BASE_URL = 'https://delivery-track-api.your-account.workers.dev'; // 替换为你的实际Worker URL
 
 // 状态映射 - 根据API返回的display_status
 const statusMap = {
     '订单已接收': { text: '订单已接收', icon: 'bi-clock', color: 'secondary' },
-    '订单已处理': { text: '订单已处理', icon: 'bi-gear', color: 'info' },
-    '已分配配送': { text: '已分配配送', icon: 'bi-calendar-check', color: 'info' },
-    '配送已安排': { text: '配送已安排', icon: 'bi-calendar-check', color: 'primary' },
-    '正在配送': { text: '正在配送', icon: 'bi-truck', color: 'warning' },
+    '订单已处理': { text: '订单已处理', icon: 'bi-gear', color: 'success' },
+    '已分配配送': { text: '已分配配送', icon: 'bi-calendar-check', color: 'warning' },
+    '配送已安排': { text: '配送已安排', icon: 'bi-calendar-check', color: 'warning' },
+    '正在配送': { text: '正在配送', icon: 'bi-truck', color: 'primary' },
     '配送完成': { text: '配送完成', icon: 'bi-check-circle', color: 'success' },
     '配送失败': { text: '配送失败', icon: 'bi-x-circle', color: 'danger' }
 };
@@ -19,6 +19,7 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
     const submitBtn = document.getElementById('submitBtn');
     const loading = document.getElementById('loading');
     const results = document.getElementById('results');
+    const formSection = document.getElementById('formSection');
     
     if (!phone) {
         alert('请输入手机号码');
@@ -42,7 +43,9 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
         const data = await response.json();
         
         if (data.success && data.orders && data.orders.length > 0) {
-            displayOrders(data.orders);
+            // 折叠表单区域
+            formSection.style.display = 'none';
+            displayOrders(data.orders, phone);
         } else {
             displayNoResults(data.message || '未找到相关订单');
         }
@@ -57,10 +60,17 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
     }
 });
 
-function displayOrders(orders) {
+function displayOrders(orders, phone) {
     const results = document.getElementById('results');
     
-    let html = `<h5 class="mb-3"><i class="bi bi-list-check"></i> 找到 ${orders.length} 个配送中的订单</h5>`;
+    let html = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-list-check text-primary"></i> 找到 ${orders.length} 个配送中的订单</h5>
+            <button class="btn btn-outline-secondary btn-sm" onclick="showFormAgain()">
+                <i class="bi bi-arrow-left"></i> 重新查询
+            </button>
+        </div>
+    `;
     
     orders.forEach((order, index) => {
         // 使用API返回的display_status
@@ -69,25 +79,20 @@ function displayOrders(orders) {
         html += `
             <div class="order-card card mb-3">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
                         <h6 class="card-title mb-0">订单 #${order.order_id}</h6>
                         <span class="badge bg-${status.color} status-badge">
                             <i class="${status.icon}"></i> ${status.text}
                         </span>
                     </div>
                     
-                    <!-- 状态描述 -->
-                    <div class="alert alert-light mb-3">
-                        <i class="bi bi-info-circle"></i> ${order.status_description || '状态更新中...'}
-                    </div>
-                    
                     <div class="row text-sm">
                         <div class="col-12 mb-2">
-                            <strong><i class="bi bi-person"></i> 收件人:</strong><br>
+                            <strong><i class="bi bi-person text-primary"></i> 收件人:</strong><br>
                             ${order.recipient_name || '未提供'}
                         </div>
-                        <div class="col-12 mb-2">
-                            <strong><i class="bi bi-geo-alt"></i> 配送地址:</strong><br>
+                        <div class="col-12 mb-3">
+                            <strong><i class="bi bi-geo-alt text-primary"></i> 配送地址:</strong><br>
                             ${order.recipient_address || '地址信息不完整'}
                             ${order.recipient_suburb ? `, ${order.recipient_suburb}` : ''}
                         </div>
@@ -96,17 +101,12 @@ function displayOrders(orders) {
                     <!-- 时间信息 -->
                     <div class="row mt-2">
                         ${order.estimated_arrival_time ? `
-                            <div class="col-12 mb-2">
-                                <i class="bi bi-clock text-primary"></i> 
-                                <strong>预计送达时间:</strong><br>
-                                <span class="text-primary">${formatDateTime(order.estimated_arrival_time)}</span>
-                            </div>
-                        ` : ''}
-                        
-                        ${order.route_date ? `
-                            <div class="col-12 mb-2">
-                                <i class="bi bi-calendar"></i> 
-                                <strong>配送日期:</strong> ${formatDate(order.route_date)}
+                            <div class="col-12 mb-3">
+                                <div class="alert alert-warning border-0" style="background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%); color: white;">
+                                    <i class="bi bi-clock"></i> 
+                                    <strong>预计送达时间:</strong><br>
+                                    <span class="fs-5">${formatTimeRange(order.estimated_arrival_time)}</span>
+                                </div>
                             </div>
                         ` : ''}
                         
@@ -121,7 +121,7 @@ function displayOrders(orders) {
                     
                     <!-- 司机信息 -->
                     ${order.driver_info && order.driver_info.name ? `
-                        <div class="mt-3 p-3 bg-light rounded">
+                        <div class="mt-3 p-3 rounded" style="background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%); color: white;">
                             <h6 class="mb-2"><i class="bi bi-person-badge"></i> 配送司机信息</h6>
                             <div class="row">
                                 <div class="col-6">
@@ -131,7 +131,7 @@ function displayOrders(orders) {
                                 ${order.driver_info.phone ? `
                                     <div class="col-6">
                                         <strong>联系电话:</strong><br>
-                                        <a href="tel:${order.driver_info.phone}" class="text-decoration-none">
+                                        <a href="tel:${order.driver_info.phone}" class="text-white text-decoration-none">
                                             <i class="bi bi-phone"></i> ${order.driver_info.phone}
                                         </a>
                                     </div>
@@ -157,9 +157,26 @@ function displayOrders(orders) {
     results.innerHTML = html;
 }
 
+// 显示表单的函数
+function showFormAgain() {
+    const formSection = document.getElementById('formSection');
+    const results = document.getElementById('results');
+    
+    formSection.style.display = 'block';
+    results.style.display = 'none';
+    
+    // 清空手机号输入框
+    document.getElementById('phone').value = '';
+}
+
 function displayNoResults(message) {
     const results = document.getElementById('results');
     results.innerHTML = `
+        <div class="text-center mb-3">
+            <button class="btn btn-outline-secondary btn-sm" onclick="showFormAgain()">
+                <i class="bi bi-arrow-left"></i> 重新查询
+            </button>
+        </div>
         <div class="alert alert-warning text-center">
             <i class="bi bi-exclamation-triangle"></i>
             <h6>未找到配送中的订单</h6>
@@ -175,6 +192,11 @@ function displayNoResults(message) {
 function displayError(message) {
     const results = document.getElementById('results');
     results.innerHTML = `
+        <div class="text-center mb-3">
+            <button class="btn btn-outline-secondary btn-sm" onclick="showFormAgain()">
+                <i class="bi bi-arrow-left"></i> 重新查询
+            </button>
+        </div>
         <div class="alert alert-danger text-center">
             <i class="bi bi-exclamation-circle"></i>
             <h6>查询失败</h6>
@@ -184,6 +206,28 @@ function displayError(message) {
             </button>
         </div>
     `;
+}
+
+function formatTimeRange(dateString) {
+    if (!dateString) return '未知';
+    
+    try {
+        const date = new Date(dateString);
+        const startTime = new Date(date.getTime() - 30 * 60000); // 减30分钟
+        const endTime = new Date(date.getTime() + 30 * 60000);   // 加30分钟
+        
+        const formatTime = (d) => {
+            return d.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        };
+        
+        return `${formatTime(startTime)}-${formatTime(endTime)}`;
+    } catch {
+        return dateString;
+    }
 }
 
 function formatDateTime(dateString) {
@@ -232,7 +276,7 @@ document.getElementById('phone').addEventListener('input', function(e) {
 
 // 页面加载完成后的提示
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('订单查询系统已加载');
+    console.log('好鲜生订单查询系统已加载');
     
     // 如果URL包含phone参数，自动填入
     const urlParams = new URLSearchParams(window.location.search);
