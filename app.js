@@ -1,5 +1,5 @@
-// API配置 - 使用Worker URL
-const API_BASE_URL = 'https://delivery-track-api.your-account.workers.dev'; // 替换为你的实际Worker URL
+// API配置 - 使用Cloudflare Worker
+const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // 正式Worker地址
 
 // 状态映射 - 根据API返回的display_status
 const statusMap = {
