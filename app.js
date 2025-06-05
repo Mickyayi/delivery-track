@@ -1,13 +1,15 @@
-// API配置 - 指向Cloudflare Worker
-const API_BASE_URL = 'https://delivery-api.mickyayi.workers.dev';
+// API配置 - 使用Worker URL
+const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // 稍后替换为实际Worker URL
 
-// 状态映射
+// 状态映射 - 根据API返回的display_status
 const statusMap = {
-    'pending': { text: '订单已接收', icon: 'bi-clock', color: 'secondary' },
-    'scheduled': { text: '已安排配送', icon: 'bi-calendar-check', color: 'info' },
-    'delivering': { text: '配送中', icon: 'bi-truck', color: 'warning' },
-    'completed': { text: '已送达', icon: 'bi-check-circle', color: 'success' },
-    'failed': { text: '配送失败', icon: 'bi-x-circle', color: 'danger' }
+    '订单已接收': { text: '订单已接收', icon: 'bi-clock', color: 'secondary' },
+    '订单已处理': { text: '订单已处理', icon: 'bi-gear', color: 'info' },
+    '已分配配送': { text: '已分配配送', icon: 'bi-calendar-check', color: 'info' },
+    '配送已安排': { text: '配送已安排', icon: 'bi-calendar-check', color: 'primary' },
+    '正在配送': { text: '正在配送', icon: 'bi-truck', color: 'warning' },
+    '配送完成': { text: '配送完成', icon: 'bi-check-circle', color: 'success' },
+    '配送失败': { text: '配送失败', icon: 'bi-x-circle', color: 'danger' }
 };
 
 document.getElementById('trackForm').addEventListener('submit', async function(e) {
@@ -42,7 +44,7 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
         if (data.success && data.orders && data.orders.length > 0) {
             displayOrders(data.orders);
         } else {
-            displayNoResults();
+            displayNoResults(data.message || '未找到相关订单');
         }
         
     } catch (error) {
@@ -58,56 +60,95 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
 function displayOrders(orders) {
     const results = document.getElementById('results');
     
-    let html = `<h5 class="mb-3"><i class="bi bi-list-check"></i> 找到 ${orders.length} 个订单</h5>`;
+    let html = `<h5 class="mb-3"><i class="bi bi-list-check"></i> 找到 ${orders.length} 个配送中的订单</h5>`;
     
     orders.forEach((order, index) => {
-        // 获取配送状态，优先使用delivery_info中的状态
-        const deliveryStatus = order.delivery_info?.delivery_status || order.order_status || 'pending';
-        const status = statusMap[deliveryStatus] || statusMap['pending'];
+        // 使用API返回的display_status
+        const status = statusMap[order.display_status] || { text: order.display_status, icon: 'bi-info-circle', color: 'secondary' };
         
         html += `
             <div class="order-card card mb-3">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6 class="card-title mb-0">订单 #${order.order_id || `ORD-${index + 1}`}</h6>
+                        <h6 class="card-title mb-0">订单 #${order.order_id}</h6>
                         <span class="badge bg-${status.color} status-badge">
                             <i class="${status.icon}"></i> ${status.text}
                         </span>
                     </div>
                     
+                    <!-- 状态描述 -->
+                    <div class="alert alert-light mb-3">
+                        <i class="bi bi-info-circle"></i> ${order.status_description || '状态更新中...'}
+                    </div>
+                    
                     <div class="row text-sm">
-                        <div class="col-6">
-                            <strong>收件人:</strong><br>
+                        <div class="col-12 mb-2">
+                            <strong><i class="bi bi-person"></i> 收件人:</strong><br>
                             ${order.recipient_name || '未提供'}
                         </div>
-                        <div class="col-6">
-                            <strong>配送地址:</strong><br>
-                            ${order.delivery_address || '地址信息不完整'}
-                            ${order.suburb ? `<br>${order.suburb}` : ''}
+                        <div class="col-12 mb-2">
+                            <strong><i class="bi bi-geo-alt"></i> 配送地址:</strong><br>
+                            ${order.recipient_address || '地址信息不完整'}
+                            ${order.recipient_suburb ? `, ${order.recipient_suburb}` : ''}
                         </div>
                     </div>
                     
-                    ${order.delivery_info?.estimated_arrival ? `
-                        <div class="mt-2">
-                            <i class="bi bi-clock"></i> 
-                            <strong>预计送达:</strong> ${formatDateTime(order.delivery_info.estimated_arrival)}
+                    <!-- 时间信息 -->
+                    <div class="row mt-2">
+                        ${order.estimated_arrival_time ? `
+                            <div class="col-12 mb-2">
+                                <i class="bi bi-clock text-primary"></i> 
+                                <strong>预计送达时间:</strong><br>
+                                <span class="text-primary">${formatDateTime(order.estimated_arrival_time)}</span>
+                            </div>
+                        ` : ''}
+                        
+                        ${order.route_date ? `
+                            <div class="col-12 mb-2">
+                                <i class="bi bi-calendar"></i> 
+                                <strong>配送日期:</strong> ${formatDate(order.route_date)}
+                            </div>
+                        ` : ''}
+                        
+                        ${order.actual_arrival_time ? `
+                            <div class="col-12 mb-2">
+                                <i class="bi bi-check-circle text-success"></i> 
+                                <strong>实际到达时间:</strong><br>
+                                <span class="text-success">${formatDateTime(order.actual_arrival_time)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- 司机信息 -->
+                    ${order.driver_info && order.driver_info.name ? `
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2"><i class="bi bi-person-badge"></i> 配送司机信息</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>姓名:</strong><br>
+                                    ${order.driver_info.name}
+                                </div>
+                                ${order.driver_info.phone ? `
+                                    <div class="col-6">
+                                        <strong>联系电话:</strong><br>
+                                        <a href="tel:${order.driver_info.phone}" class="text-decoration-none">
+                                            <i class="bi bi-phone"></i> ${order.driver_info.phone}
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                     ` : ''}
                     
-                    ${order.route_info ? `
-                        <div class="mt-2 p-2 bg-light rounded">
-                            <i class="bi bi-person-badge"></i> 
-                            <strong>配送司机:</strong> ${order.route_info.driver_name || '待安排'}
-                            ${order.route_info.driver_phone ? `<br><i class="bi bi-phone"></i> ${order.route_info.driver_phone}` : ''}
-                            ${order.route_info.vehicle_plate ? `<br><i class="bi bi-truck"></i> 车牌: ${order.route_info.vehicle_plate}` : ''}
+                    <!-- 订单备注 -->
+                    ${order.order_note ? `
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-chat-left-text"></i> 
+                                <strong>备注:</strong> ${order.order_note}
+                            </small>
                         </div>
-                    ` : `
-                        <div class="mt-2 p-2 bg-secondary text-white rounded">
-                            <i class="bi bi-clock"></i> 订单处理中，暂未安排配送
-                        </div>
-                    `}
-                    
-                    ${generateTrackingSteps(order)}
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -116,80 +157,17 @@ function displayOrders(orders) {
     results.innerHTML = html;
 }
 
-function generateTrackingSteps(order) {
-    const steps = [
-        { 
-            status: 'pending', 
-            text: '订单已接收', 
-            time: order.created_at,
-            completed: true 
-        }
-    ];
-    
-    if (order.route_info) {
-        steps.push({
-            status: 'scheduled',
-            text: '已安排配送路线',
-            time: order.route_info.route_date,
-            completed: true
-        });
-        
-        if (order.delivery_info) {
-            if (order.delivery_info.delivery_status === 'delivering') {
-                steps.push({
-                    status: 'delivering',
-                    text: '配送中',
-                    time: order.delivery_info.actual_arrival,
-                    completed: true
-                });
-            } else if (order.delivery_info.delivery_status === 'completed') {
-                steps.push({
-                    status: 'delivering',
-                    text: '配送中',
-                    time: order.delivery_info.actual_arrival,
-                    completed: true
-                });
-                steps.push({
-                    status: 'completed',
-                    text: '已送达',
-                    time: order.delivery_info.actual_departure,
-                    completed: true
-                });
-            } else if (order.delivery_info.delivery_status === 'failed') {
-                steps.push({
-                    status: 'failed',
-                    text: '配送失败',
-                    time: order.delivery_info.actual_departure,
-                    completed: true
-                });
-            }
-        }
-    }
-    
-    let html = '<div class="mt-3"><h6>配送进度:</h6>';
-    
-    steps.forEach((step, index) => {
-        const isActive = step.completed;
-        html += `
-            <div class="progress-step ${isActive ? 'active' : ''}">
-                <i class="step-icon ${isActive ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
-                ${step.text}
-                ${step.time ? `<small class="d-block text-muted">${formatDateTime(step.time)}</small>` : ''}
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    return html;
-}
-
-function displayNoResults() {
+function displayNoResults(message) {
     const results = document.getElementById('results');
     results.innerHTML = `
         <div class="alert alert-warning text-center">
             <i class="bi bi-exclamation-triangle"></i>
-            <h6>未找到订单</h6>
-            <p class="mb-0">请检查手机号码是否正确，或联系客服咨询</p>
+            <h6>未找到配送中的订单</h6>
+            <p class="mb-0">${message}</p>
+            <hr>
+            <small class="text-muted">
+                注：只显示正在配送中的订单。如需查询历史订单，请联系客服。
+            </small>
         </div>
     `;
 }
@@ -201,6 +179,9 @@ function displayError(message) {
             <i class="bi bi-exclamation-circle"></i>
             <h6>查询失败</h6>
             <p class="mb-0">${message}</p>
+            <button class="btn btn-outline-danger btn-sm mt-2" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> 重新尝试
+            </button>
         </div>
     `;
 }
@@ -215,7 +196,23 @@ function formatDateTime(dateString) {
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hour12: false
+        });
+    } catch {
+        return dateString;
+    }
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '未知';
+    
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
         });
     } catch {
         return dateString;
@@ -224,11 +221,23 @@ function formatDateTime(dateString) {
 
 // 输入验证
 document.getElementById('phone').addEventListener('input', function(e) {
-    // 简单的手机号格式验证
+    // 澳洲手机号格式验证
     const value = e.target.value;
     if (value && !/^[\d\-\+\s\(\)]+$/.test(value)) {
         e.target.setCustomValidity('请输入有效的手机号码');
     } else {
         e.target.setCustomValidity('');
+    }
+});
+
+// 页面加载完成后的提示
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('订单查询系统已加载');
+    
+    // 如果URL包含phone参数，自动填入
+    const urlParams = new URLSearchParams(window.location.search);
+    const phoneParam = urlParams.get('phone');
+    if (phoneParam) {
+        document.getElementById('phone').value = phoneParam;
     }
 });
