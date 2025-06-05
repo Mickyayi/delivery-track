@@ -1,5 +1,5 @@
-// API配置 - 稍后我们会创建这个Worker
-const API_BASE_URL = 'https://yourproject.workers.dev'; // 稍后替换
+// API配置 - 指向Cloudflare Worker
+const API_BASE_URL = 'https://delivery-api.mickyayi.workers.dev';
 
 // 状态映射
 const statusMap = {
@@ -61,7 +61,9 @@ function displayOrders(orders) {
     let html = `<h5 class="mb-3"><i class="bi bi-list-check"></i> 找到 ${orders.length} 个订单</h5>`;
     
     orders.forEach((order, index) => {
-        const status = statusMap[order.delivery_status] || statusMap['pending'];
+        // 获取配送状态，优先使用delivery_info中的状态
+        const deliveryStatus = order.delivery_info?.delivery_status || order.order_status || 'pending';
+        const status = statusMap[deliveryStatus] || statusMap['pending'];
         
         html += `
             <div class="order-card card mb-3">
@@ -80,26 +82,32 @@ function displayOrders(orders) {
                         </div>
                         <div class="col-6">
                             <strong>配送地址:</strong><br>
-                            ${order.recipient_address || '地址信息不完整'}
+                            ${order.delivery_address || '地址信息不完整'}
+                            ${order.suburb ? `<br>${order.suburb}` : ''}
                         </div>
                     </div>
                     
-                    ${order.estimated_delivery ? `
+                    ${order.delivery_info?.estimated_arrival ? `
                         <div class="mt-2">
                             <i class="bi bi-clock"></i> 
-                            <strong>预计送达:</strong> ${formatDateTime(order.estimated_delivery)}
+                            <strong>预计送达:</strong> ${formatDateTime(order.delivery_info.estimated_arrival)}
                         </div>
                     ` : ''}
                     
-                    ${order.driver_info ? `
+                    ${order.route_info ? `
                         <div class="mt-2 p-2 bg-light rounded">
                             <i class="bi bi-person-badge"></i> 
-                            <strong>配送司机:</strong> ${order.driver_info.name}
-                            ${order.driver_info.phone ? `<br><i class="bi bi-phone"></i> ${order.driver_info.phone}` : ''}
+                            <strong>配送司机:</strong> ${order.route_info.driver_name || '待安排'}
+                            ${order.route_info.driver_phone ? `<br><i class="bi bi-phone"></i> ${order.route_info.driver_phone}` : ''}
+                            ${order.route_info.vehicle_plate ? `<br><i class="bi bi-truck"></i> 车牌: ${order.route_info.vehicle_plate}` : ''}
                         </div>
-                    ` : ''}
+                    ` : `
+                        <div class="mt-2 p-2 bg-secondary text-white rounded">
+                            <i class="bi bi-clock"></i> 订单处理中，暂未安排配送
+                        </div>
+                    `}
                     
-                    ${order.tracking_history ? displayTrackingHistory(order.tracking_history) : ''}
+                    ${generateTrackingSteps(order)}
                 </div>
             </div>
         `;
@@ -108,20 +116,65 @@ function displayOrders(orders) {
     results.innerHTML = html;
 }
 
-function displayTrackingHistory(history) {
-    if (!Array.isArray(history) || history.length === 0) {
-        return '';
+function generateTrackingSteps(order) {
+    const steps = [
+        { 
+            status: 'pending', 
+            text: '订单已接收', 
+            time: order.created_at,
+            completed: true 
+        }
+    ];
+    
+    if (order.route_info) {
+        steps.push({
+            status: 'scheduled',
+            text: '已安排配送路线',
+            time: order.route_info.route_date,
+            completed: true
+        });
+        
+        if (order.delivery_info) {
+            if (order.delivery_info.delivery_status === 'delivering') {
+                steps.push({
+                    status: 'delivering',
+                    text: '配送中',
+                    time: order.delivery_info.actual_arrival,
+                    completed: true
+                });
+            } else if (order.delivery_info.delivery_status === 'completed') {
+                steps.push({
+                    status: 'delivering',
+                    text: '配送中',
+                    time: order.delivery_info.actual_arrival,
+                    completed: true
+                });
+                steps.push({
+                    status: 'completed',
+                    text: '已送达',
+                    time: order.delivery_info.actual_departure,
+                    completed: true
+                });
+            } else if (order.delivery_info.delivery_status === 'failed') {
+                steps.push({
+                    status: 'failed',
+                    text: '配送失败',
+                    time: order.delivery_info.actual_departure,
+                    completed: true
+                });
+            }
+        }
     }
     
     let html = '<div class="mt-3"><h6>配送进度:</h6>';
     
-    history.forEach(step => {
+    steps.forEach((step, index) => {
         const isActive = step.completed;
         html += `
             <div class="progress-step ${isActive ? 'active' : ''}">
                 <i class="step-icon ${isActive ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
-                ${step.description}
-                ${step.timestamp ? `<small class="d-block text-muted">${formatDateTime(step.timestamp)}</small>` : ''}
+                ${step.text}
+                ${step.time ? `<small class="d-block text-muted">${formatDateTime(step.time)}</small>` : ''}
             </div>
         `;
     });
