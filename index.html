@@ -148,6 +148,13 @@
             color: var(--hao-orange);
         }
         
+        .loading-gif {
+            max-width: 120px;
+            max-height: 120px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
         .form-section {
             transition: all 0.5s ease;
         }
@@ -217,9 +224,7 @@
 
                 <!-- 加载状态 -->
                 <div id="loading" class="text-center py-5" style="display: none;">
-                    <div class="spinner-border text-warning mb-3" style="width: 3rem; height: 3rem;" role="status">
-                        <span class="visually-hidden">查询中...</span>
-                    </div>
+                    <img src="theman.GIF" alt="查询中..." class="loading-gif mb-3">
                     <h5 style="color: var(--hao-orange);">正在查询您的订单...</h5>
                     <p class="text-muted">请稍候，我们正在搜索相关配送信息</p>
                 </div>
