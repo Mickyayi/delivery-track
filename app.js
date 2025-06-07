@@ -31,6 +31,10 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
     loading.style.display = 'block';
     results.style.display = 'none';
     
+    // 记录开始时间，确保最少显示2秒加载动画
+    const startTime = Date.now();
+    const minLoadingTime = 2000; // 2秒
+    
     try {
         const response = await fetch(`${API_BASE_URL}/track-order`, {
             method: 'POST',
@@ -42,6 +46,15 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
         
         const data = await response.json();
         
+        // 计算已经过去的时间
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+        
+        // 如果还没到最小时间，等待剩余时间
+        if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+        
         if (data.success && data.orders && data.orders.length > 0) {
             // 折叠表单区域
             formSection.style.display = 'none';
@@ -52,6 +65,15 @@ document.getElementById('trackForm').addEventListener('submit', async function(e
         
     } catch (error) {
         console.error('查询失败:', error);
+        
+        // 即使出错也要保证最小加载时间
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+        
+        if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+        
         displayError('网络错误，请稍后再试');
     } finally {
         submitBtn.disabled = false;
