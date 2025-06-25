@@ -3,7 +3,7 @@ export default {
       // 处理CORS
       const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       };
       
@@ -115,6 +115,16 @@ export default {
             });
           }
           
+          // 检查API密钥是否存在
+          if (!env.GOOGLE_MAPS_API_KEY) {
+            return new Response(JSON.stringify({
+              error: "Google Maps API key not configured"
+            }), { 
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
           // 构建Google Maps API URL
           const googleApiUrl = new URL(`https://maps.googleapis.com/maps/api/${service}/json`);
           
@@ -128,6 +138,17 @@ export default {
           
           // 调用Google Maps API
           const response = await fetch(googleApiUrl.toString());
+          
+          if (!response.ok) {
+            return new Response(JSON.stringify({
+              error: `Google Maps API error: ${response.status}`,
+              details: response.statusText
+            }), { 
+              status: response.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
           const data = await response.json();
           
           return new Response(JSON.stringify(data), {
@@ -136,7 +157,8 @@ export default {
           
         } catch (error) {
           return new Response(JSON.stringify({
-            error: "Maps service error"
+            error: "Maps service error",
+            details: error.message
           }), { 
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
