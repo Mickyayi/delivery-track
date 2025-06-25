@@ -99,6 +99,51 @@ export default {
         }
       }
       
+      // 处理Google Maps API代理请求
+      if (request.method === 'GET' && url.pathname.startsWith('/maps/')) {
+        try {
+          const service = url.pathname.split('/')[2]; // geocoding, staticmap等
+          
+          // 只允许特定的Maps服务
+          const allowedServices = ['geocoding', 'staticmap'];
+          if (!allowedServices.includes(service)) {
+            return new Response(JSON.stringify({
+              error: "Service not allowed"
+            }), { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // 构建Google Maps API URL
+          const googleApiUrl = new URL(`https://maps.googleapis.com/maps/api/${service}/json`);
+          
+          // 复制查询参数
+          url.searchParams.forEach((value, key) => {
+            googleApiUrl.searchParams.set(key, value);
+          });
+          
+          // 添加API密钥
+          googleApiUrl.searchParams.set('key', env.GOOGLE_MAPS_API_KEY);
+          
+          // 调用Google Maps API
+          const response = await fetch(googleApiUrl.toString());
+          const data = await response.json();
+          
+          return new Response(JSON.stringify(data), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            error: "Maps service error"
+          }), { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       return new Response('Not Found', { status: 404 });
     }
   };

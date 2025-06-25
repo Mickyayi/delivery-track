@@ -3,8 +3,8 @@ const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // �
 
 // 地图配置
 const MAP_CONFIG = {
-    useGoogleMaps: false, // 设置为true启用Google Maps（需要API密钥）
-    googleMapsApiKey: '', // 在这里填入您的Google Maps API密钥
+    useGoogleGeocoding: false, // 设置为true启用Google地理编码（通过后端代理）
+    useProxyMaps: true, // 使用代理方式访问Google服务
     defaultMapProvider: 'esri-satellite', // 默认地图提供商
     
     // 可用的地图提供商
@@ -511,8 +511,28 @@ function updateDriverMarker(mapData, newDriverData) {
 }
 
 async function geocodeDeliveryAddress(address) {
+    // 如果启用了Google地理编码代理
+    if (MAP_CONFIG.useGoogleGeocoding && MAP_CONFIG.useProxyMaps) {
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/maps/geocoding?address=${encodeURIComponent(address + ', Australia')}&components=country:AU`
+            );
+            const data = await response.json();
+            
+            if (data.status === 'OK' && data.results.length > 0) {
+                const location = data.results[0].geometry.location;
+                return {
+                    lat: location.lat,
+                    lng: location.lng
+                };
+            }
+        } catch (error) {
+            console.warn('Google地理编码失败，回退到Nominatim:', error);
+        }
+    }
+    
+    // 回退到Nominatim (OpenStreetMap的地理编码服务)
     try {
-        // 使用Nominatim (OpenStreetMap的地理编码服务)
         const response = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Australia')}&limit=1`
         );
