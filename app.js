@@ -1,6 +1,37 @@
 // API配置 - 使用Cloudflare Worker
 const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // 正式Worker地址
 
+// 地图配置
+const MAP_CONFIG = {
+    useGoogleMaps: false, // 设置为true启用Google Maps（需要API密钥）
+    googleMapsApiKey: '', // 在这里填入您的Google Maps API密钥
+    defaultMapProvider: 'esri-satellite', // 默认地图提供商
+    
+    // 可用的地图提供商
+    providers: {
+        'osm': {
+            name: 'OpenStreetMap',
+            url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            attribution: '© OpenStreetMap contributors'
+        },
+        'esri-satellite': {
+            name: 'Esri 卫星图像',
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+        },
+        'esri-street': {
+            name: 'Esri 街道地图',
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            attribution: '© Esri'
+        },
+        'cartodb': {
+            name: 'CartoDB Positron',
+            url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+            attribution: '© OpenStreetMap contributors, © CartoDB'
+        }
+    }
+};
+
 // 地图相关变量
 let driverLocationMaps = new Map(); // 存储每个订单的地图实例
 let locationUpdateIntervals = new Map(); // 存储位置更新定时器
@@ -384,10 +415,28 @@ function displayDriverMap(orderId, driverData, deliveryAddress) {
         doubleClickZoom: true
     });
     
-    // 添加地图图层 (使用OpenStreetMap)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    // 添加地图图层 (使用高质量卫星图像)
+    const provider = MAP_CONFIG.providers[MAP_CONFIG.defaultMapProvider];
+    const tileLayer = L.tileLayer(provider.url, {
+        attribution: provider.attribution,
+        maxZoom: 18
     }).addTo(map);
+    
+    // 添加图层切换控制
+    const baseLayers = {};
+    Object.keys(MAP_CONFIG.providers).forEach(key => {
+        const p = MAP_CONFIG.providers[key];
+        baseLayers[p.name] = L.tileLayer(p.url, {
+            attribution: p.attribution,
+            maxZoom: 18
+        });
+    });
+    
+    // 设置默认图层
+    baseLayers[provider.name] = tileLayer;
+    
+    // 添加图层控制器
+    L.control.layers(baseLayers).addTo(map);
     
     // 司机位置
     const driverLat = parseFloat(driverData.current_latitude);
