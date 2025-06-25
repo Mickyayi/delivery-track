@@ -517,10 +517,10 @@ async function displayDriverMap(orderId, driverData, deliveryAddress) {
     const driverLat = parseFloat(driverData.current_latitude);
     const driverLng = parseFloat(driverData.current_longitude);
     
-    // 创建司机标记 (蓝色卡车图标)
+    // 创建司机标记 (使用动态GIF图)
     const driverIcon = L.divIcon({
-        html: '<i class="bi bi-truck" style="color: #2196f3; font-size: 24px;"></i>',
-        iconSize: [30, 30],
+        html: '<img src="./driver.gif" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid white;">',
+        iconSize: [40, 40],
         className: 'driver-marker'
     });
     
@@ -592,20 +592,15 @@ async function displayGoogleMap(orderId, driverData, deliveryAddress, mapContain
         }
     });
     
-    // 创建司机标记
+    // 创建司机标记 - 使用动态GIF图
     const driverMarker = new google.maps.Marker({
         position: { lat: driverLat, lng: driverLng },
         map: map,
         title: driverData.driver_name || '配送司机',
         icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-                    <circle cx="16" cy="16" r="15" fill="#2196F3" stroke="white" stroke-width="2"/>
-                    <text x="16" y="22" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">🚚</text>
-                </svg>
-            `),
-            scaledSize: new google.maps.Size(32, 32),
-            anchor: new google.maps.Point(16, 16)
+            url: './driver.gif',  // 使用新的司机GIF动画
+            scaledSize: new google.maps.Size(40, 40),  // 稍微大一点以显示动画效果
+            anchor: new google.maps.Point(20, 20)
         }
     });
     

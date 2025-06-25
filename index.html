@@ -221,6 +221,31 @@
             font-size: 0.8rem;
             opacity: 0.9;
         }
+        
+        /* 司机标记样式 */
+        .driver-marker {
+            background: transparent !important;
+            border: none !important;
+        }
+        
+        .driver-marker img {
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(33, 150, 243, 0.7);
+            }
+            70% {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 10px rgba(33, 150, 243, 0);
+            }
+            100% {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(33, 150, 243, 0);
+            }
+        }
     </style>
 </head>
 <body>
