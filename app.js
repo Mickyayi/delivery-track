@@ -3,9 +3,11 @@ const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // �
 
 // 地图配置
 const MAP_CONFIG = {
+    useGoogleMaps: true, // 启用Google Maps地图显示
     useGoogleGeocoding: true, // 启用Google地理编码（通过后端代理）
     useProxyMaps: true, // 使用代理方式访问Google服务
-    defaultMapProvider: 'esri-satellite', // 默认地图提供商
+    fallbackToLeaflet: true, // 如果Google Maps失败，回退到Leaflet
+    defaultMapProvider: 'esri-satellite', // Leaflet备用地图提供商
     
     // 可用的地图提供商
     providers: {
@@ -35,6 +37,59 @@ const MAP_CONFIG = {
 // 地图相关变量
 let driverLocationMaps = new Map(); // 存储每个订单的地图实例
 let locationUpdateIntervals = new Map(); // 存储位置更新定时器
+let googleMapsLoaded = false; // Google Maps API加载状态
+let googleMapsLoading = false; // Google Maps API加载中状态
+
+// 动态加载Google Maps API
+async function loadGoogleMapsAPI() {
+    if (googleMapsLoaded) return true;
+    if (googleMapsLoading) {
+        // 等待加载完成
+        return new Promise((resolve) => {
+            const checkLoaded = () => {
+                if (googleMapsLoaded) resolve(true);
+                else if (!googleMapsLoading) resolve(false);
+                else setTimeout(checkLoaded, 100);
+            };
+            checkLoaded();
+        });
+    }
+    
+    googleMapsLoading = true;
+    
+    try {
+        // 通过Worker获取Google Maps API URL
+        const response = await fetch(`${API_BASE_URL}/maps/js-api-url`);
+        if (!response.ok) throw new Error('Failed to get Google Maps API URL');
+        
+        const data = await response.json();
+        if (!data.url) throw new Error('No Google Maps API URL provided');
+        
+        // 动态加载Google Maps API脚本
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = data.url;
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                googleMapsLoaded = true;
+                googleMapsLoading = false;
+                resolve();
+            };
+            script.onerror = () => {
+                googleMapsLoading = false;
+                reject(new Error('Failed to load Google Maps API'));
+            };
+            document.head.appendChild(script);
+        });
+        
+        return true;
+    } catch (error) {
+        console.warn('Failed to load Google Maps API:', error);
+        googleMapsLoading = false;
+        return false;
+    }
+}
 
 // 状态映射 - 根据API返回的display_status
 const statusMap = {
@@ -364,7 +419,7 @@ async function loadDriverLocation(orderId, routeId, deliveryAddress) {
         const data = await response.json();
         
         if (data.current_latitude && data.current_longitude) {
-            displayDriverMap(orderId, data, deliveryAddress);
+            await displayDriverMap(orderId, data, deliveryAddress);
             updateLocationTime(orderId, data.last_location_update);
             
             // 设置定时更新 (每30秒)
@@ -400,7 +455,7 @@ async function updateDriverLocation(orderId, routeId, deliveryAddress) {
     }
 }
 
-function displayDriverMap(orderId, driverData, deliveryAddress) {
+async function displayDriverMap(orderId, driverData, deliveryAddress) {
     const mapContainer = document.getElementById(`map-container-${orderId}`);
     if (!mapContainer) return;
     
@@ -408,7 +463,27 @@ function displayDriverMap(orderId, driverData, deliveryAddress) {
     mapContainer.className = 'driver-map-container';
     mapContainer.innerHTML = '';
     
-    // 创建地图
+    // 尝试使用Google Maps
+    if (MAP_CONFIG.useGoogleMaps) {
+        const googleMapsLoaded = await loadGoogleMapsAPI();
+        if (googleMapsLoaded && window.google && window.google.maps) {
+            displayGoogleMap(orderId, driverData, deliveryAddress, mapContainer);
+            return;
+        } else if (!MAP_CONFIG.fallbackToLeaflet) {
+            // 如果不允许回退，显示错误
+            mapContainer.innerHTML = `
+                <div class="text-center text-muted p-3">
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    <div>Google Maps加载失败</div>
+                    <small>请稍后再试</small>
+                </div>
+            `;
+            return;
+        }
+        console.warn('Google Maps加载失败，回退到Leaflet地图');
+    }
+    
+    // 创建Leaflet地图（原有逻辑）
     const map = L.map(mapContainer, {
         zoomControl: true,
         scrollWheelZoom: false,
@@ -490,21 +565,156 @@ function displayDriverMap(orderId, driverData, deliveryAddress) {
     driverLocationMaps.set(orderId, { map, driverMarker, driverData });
 }
 
+// 显示Google Maps地图
+async function displayGoogleMap(orderId, driverData, deliveryAddress, mapContainer) {
+    const driverLat = parseFloat(driverData.current_latitude);
+    const driverLng = parseFloat(driverData.current_longitude);
+    
+    // 创建Google Maps
+    const map = new google.maps.Map(mapContainer, {
+        center: { lat: driverLat, lng: driverLng },
+        zoom: 14,
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        gestureHandling: 'greedy',
+        zoomControl: true,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+            position: google.maps.ControlPosition.TOP_CENTER,
+            mapTypeIds: [
+                google.maps.MapTypeId.ROADMAP,
+                google.maps.MapTypeId.SATELLITE,
+                google.maps.MapTypeId.HYBRID,
+                google.maps.MapTypeId.TERRAIN
+            ]
+        }
+    });
+    
+    // 创建司机标记
+    const driverMarker = new google.maps.Marker({
+        position: { lat: driverLat, lng: driverLng },
+        map: map,
+        title: driverData.driver_name || '配送司机',
+        icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                    <circle cx="16" cy="16" r="15" fill="#2196F3" stroke="white" stroke-width="2"/>
+                    <text x="16" y="22" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">🚚</text>
+                </svg>
+            `),
+            scaledSize: new google.maps.Size(32, 32),
+            anchor: new google.maps.Point(16, 16)
+        }
+    });
+    
+    // 司机信息窗口
+    const driverInfoWindow = new google.maps.InfoWindow({
+        content: `
+            <div style="padding: 5px; text-align: center;">
+                <strong>${driverData.driver_name || '配送司机'}</strong><br>
+                <small>最后更新: ${formatDateTime(driverData.last_location_update)}</small>
+            </div>
+        `
+    });
+    
+    driverMarker.addListener('click', () => {
+        driverInfoWindow.open(map, driverMarker);
+    });
+    
+    // 尝试为配送地址添加标记
+    const deliveryCoords = await geocodeDeliveryAddress(deliveryAddress);
+    let destMarker = null;
+    
+    if (deliveryCoords) {
+        destMarker = new google.maps.Marker({
+            position: { lat: deliveryCoords.lat, lng: deliveryCoords.lng },
+            map: map,
+            title: '配送地址',
+            icon: {
+                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                        <circle cx="16" cy="16" r="15" fill="#F44336" stroke="white" stroke-width="2"/>
+                        <text x="16" y="22" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">🏠</text>
+                    </svg>
+                `),
+                scaledSize: new google.maps.Size(32, 32),
+                anchor: new google.maps.Point(16, 16)
+            }
+        });
+        
+        // 配送地址信息窗口
+        const destInfoWindow = new google.maps.InfoWindow({
+            content: `
+                <div style="padding: 5px; text-align: center;">
+                    <strong>配送地址</strong><br>
+                    <small>${deliveryAddress}</small>
+                </div>
+            `
+        });
+        
+        destMarker.addListener('click', () => {
+            destInfoWindow.open(map, destMarker);
+        });
+        
+        // 调整地图视角以包含两个点
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend({ lat: driverLat, lng: driverLng });
+        bounds.extend({ lat: deliveryCoords.lat, lng: deliveryCoords.lng });
+        map.fitBounds(bounds);
+        
+        // 确保最小缩放级别
+        google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+            if (map.getZoom() > 16) {
+                map.setZoom(16);
+            }
+        });
+    }
+    
+    // 存储地图实例和标记
+    driverLocationMaps.set(orderId, { 
+        map, 
+        driverMarker, 
+        destMarker,
+        driverData,
+        isGoogleMap: true 
+    });
+}
+
 function updateDriverMarker(mapData, newDriverData) {
-    const { map, driverMarker } = mapData;
+    const { map, driverMarker, isGoogleMap } = mapData;
     const newLat = parseFloat(newDriverData.current_latitude);
     const newLng = parseFloat(newDriverData.current_longitude);
     
-    // 更新司机标记位置
-    driverMarker.setLatLng([newLat, newLng]);
-    
-    // 更新弹窗内容
-    driverMarker.setPopupContent(`
-        <div style="text-align: center;">
-            <strong>${newDriverData.driver_name || '配送司机'}</strong><br>
-            <small>最后更新: ${formatDateTime(newDriverData.last_location_update)}</small>
-        </div>
-    `);
+    if (isGoogleMap) {
+        // Google Maps更新
+        driverMarker.setPosition({ lat: newLat, lng: newLng });
+        
+        // 更新信息窗口内容（如果有打开的话）
+        const newContent = `
+            <div style="padding: 5px; text-align: center;">
+                <strong>${newDriverData.driver_name || '配送司机'}</strong><br>
+                <small>最后更新: ${formatDateTime(newDriverData.last_location_update)}</small>
+            </div>
+        `;
+        
+        // 如果有信息窗口，更新内容
+        if (mapData.driverInfoWindow) {
+            mapData.driverInfoWindow.setContent(newContent);
+        }
+    } else {
+        // Leaflet地图更新
+        driverMarker.setLatLng([newLat, newLng]);
+        
+        // 更新弹窗内容
+        driverMarker.setPopupContent(`
+            <div style="text-align: center;">
+                <strong>${newDriverData.driver_name || '配送司机'}</strong><br>
+                <small>最后更新: ${formatDateTime(newDriverData.last_location_update)}</small>
+            </div>
+        `);
+    }
     
     // 更新存储的数据
     mapData.driverData = newDriverData;

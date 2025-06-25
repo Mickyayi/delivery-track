@@ -99,6 +99,38 @@ export default {
         }
       }
       
+      // 处理Google Maps JavaScript API URL请求
+      if (request.method === 'GET' && url.pathname === '/maps/js-api-url') {
+        try {
+          if (!env.GOOGLE_MAPS_API_KEY) {
+            return new Response(JSON.stringify({
+              error: "Google Maps API key not configured"
+            }), { 
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const googleMapsUrl = `https://maps.googleapis.com/maps/api/js?key=${env.GOOGLE_MAPS_API_KEY}&libraries=geometry&language=zh-CN&region=AU`;
+          
+          return new Response(JSON.stringify({ 
+            url: googleMapsUrl,
+            status: 'OK'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            error: "Failed to generate Google Maps URL",
+            details: error.message
+          }), { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // 处理Google Maps API代理请求
       if (request.method === 'GET' && url.pathname.startsWith('/maps/')) {
         try {

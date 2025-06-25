@@ -45,16 +45,17 @@
   - 异步/等待模式
   - 表单验证和错误处理
 - **地图系统**：
-  - Leaflet 1.9.4 (开源地图库)
-  - OpenStreetMap 地图数据
-  - Nominatim 地址地理编码服务
+  - **Google Maps** (推荐) - 高质量地图和地理编码
+  - **Leaflet 1.9.4** (备用) - 开源地图库
+  - 多种地图样式：卫星图、街道图、地形图
+  - 智能地理编码：Google Geocoding API + Nominatim备用
 
 ### 后端集成
 - **API端点**：Cloudflare Worker (`https://delivery-track-api.haofreshbne.workers.dev`)
 - **订单查询**：POST `/track-order` (无需认证)
 - **司机位置**：GET `/driver-location/{route_id}` (需要API密钥)
 - **数据格式**：JSON
-- **环境变量**：BACKEND_URL, API_KEY
+- **环境变量**：BACKEND_URL, API_KEY, GOOGLE_MAPS_API_KEY
 
 ### 状态系统
 支持以下订单状态：
@@ -102,6 +103,16 @@ delivery-track/
 2. 在Dashboard中设置环境变量：
    - `BACKEND_URL` = 你的后端API地址
    - `API_KEY` = API访问密钥
+   - `GOOGLE_MAPS_API_KEY` = Google Maps API密钥（推荐）
+
+#### Google Maps API设置（推荐）
+1. 访问 [Google Cloud Console](https://console.cloud.google.com/)
+2. 创建项目并启用以下API：
+   - Maps JavaScript API
+   - Geocoding API
+3. 创建API密钥并设置使用限制
+4. 将密钥添加到Worker环境变量
+5. **注意**：没有Google Maps API时会自动使用免费的Leaflet地图
 
 ### 集成示例
 支持URL参数自动填充：
