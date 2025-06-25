@@ -519,8 +519,8 @@ async function displayDriverMap(orderId, driverData, deliveryAddress) {
     
     // 创建司机标记 (使用动态GIF图)
     const driverIcon = L.divIcon({
-        html: '<img src="./driver.gif" style="width: 60px; height: 60px; border-radius: 50%; border: 3px solid white;">',
-        iconSize: [60, 60],
+        html: '<img src="./driver.gif" style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white;">',
+        iconSize: [70, 70],
         className: 'driver-marker'
     });
     
@@ -599,8 +599,8 @@ async function displayGoogleMap(orderId, driverData, deliveryAddress, mapContain
         title: driverData.driver_name || '配送司机',
         icon: {
             url: './driver.gif',  // 使用新的司机GIF动画
-            scaledSize: new google.maps.Size(60, 60),  // 调整为60x60像素，适中尺寸
-            anchor: new google.maps.Point(30, 30)
+            scaledSize: new google.maps.Size(70, 70),  // 调整为70x70像素，最佳尺寸
+            anchor: new google.maps.Point(35, 35)
         }
     });
     
