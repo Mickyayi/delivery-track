@@ -169,8 +169,8 @@ function displayOrders(orders, phone) {
                         </div>
                     ` : ''}
                     
-                    <!-- 司机实时位置 (仅在正在配送时显示) -->
-                    ${order.display_status === '正在配送' && order.route_id ? `
+                                            <!-- 司机实时位置 (当有route_id且状态为已分配配送或正在配送时显示) -->
+                        ${(order.display_status === '正在配送' || order.display_status === '已分配配送') && order.route_id ? `
                         <div class="mt-3">
                             <div class="driver-location-card">
                                 <h6 class="mb-2">
@@ -208,9 +208,9 @@ function displayOrders(orders, phone) {
     
     results.innerHTML = html;
     
-    // 为正在配送的订单加载司机位置
+    // 为有route_id的订单加载司机位置（已分配配送或正在配送）
     orders.forEach(order => {
-        if (order.display_status === '正在配送' && order.route_id) {
+        if ((order.display_status === '正在配送' || order.display_status === '已分配配送') && order.route_id) {
             loadDriverLocation(order.order_id, order.route_id, order.recipient_address);
         }
     });
