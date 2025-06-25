@@ -78,7 +78,7 @@ export default {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'X-API-Key': env.API_KEY // 需要在环境变量中配置
+              'Authorization': `ApiKey ${env.API_KEY}` // 使用正确的Authorization头格式
             }
           });
           
