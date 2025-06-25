@@ -3,7 +3,7 @@ const API_BASE_URL = 'https://delivery-track-api.haofreshbne.workers.dev'; // �
 
 // 地图配置
 const MAP_CONFIG = {
-    useGoogleGeocoding: false, // 设置为true启用Google地理编码（通过后端代理）
+    useGoogleGeocoding: true, // 启用Google地理编码（通过后端代理）
     useProxyMaps: true, // 使用代理方式访问Google服务
     defaultMapProvider: 'esri-satellite', // 默认地图提供商
     
