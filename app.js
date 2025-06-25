@@ -191,16 +191,6 @@ function displayOrders(orders, phone) {
                             </div>
                         </div>
                     ` : ''}
-                    
-                    <!-- 订单备注 -->
-                    ${order.order_note ? `
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                <i class="bi bi-chat-left-text"></i> 
-                                <strong>备注:</strong> ${order.order_note}
-                            </small>
-                        </div>
-                    ` : ''}
                 </div>
             </div>
         `;
