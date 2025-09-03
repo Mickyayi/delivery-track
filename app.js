@@ -42,7 +42,7 @@ let googleMapsLoading = false; // Google Maps API加载中状态
 
 // 智能司机图标配置
 const DRIVER_ICONS = {
-    normal: './normal.gif',    // 正常配送状态
+    normal: './driver.gif',    // 临时使用driver.gif测试 - 原本是./normal.gif
     late: './late.gif',        // 延误状态
     rain: './rain.gif',        // 雨天状态
     fallback: './driver.gif'   // 备用图标（向后兼容）

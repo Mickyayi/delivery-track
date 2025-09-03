@@ -80,9 +80,9 @@
         <h2>🖥️ 原始大小测试 (100x100px)</h2>
         
         <div class="icon-test">
-            <img src="./normal.gif" alt="正常配送">
-            <div><strong>normal.gif</strong></div>
-            <div class="status">正常配送状态</div>
+            <img src="./driver.gif" alt="正常配送（临时使用driver.gif）">
+            <div><strong>driver.gif (替代normal.gif测试)</strong></div>
+            <div class="status">正常配送状态 - 测试版</div>
         </div>
         
         <div class="icon-test">
@@ -108,8 +108,8 @@
         <h2>🗺️ 地图样式测试 (70x70px，模拟地图显示)</h2>
         
         <div class="icon-test">
-            <img src="./normal.gif" alt="正常配送" class="map-style">
-            <div><strong>地图中的normal.gif</strong></div>
+            <img src="./driver.gif" alt="正常配送（临时使用driver.gif）" class="map-style">
+            <div><strong>地图中的driver.gif (替代normal.gif)</strong></div>
         </div>
         
         <div class="icon-test">
@@ -133,9 +133,9 @@
         <p>点击按钮测试动态切换图标:</p>
         
         <div id="dynamic-test" style="text-align: center; margin: 20px 0;">
-            <img id="dynamic-icon" src="./normal.gif" class="map-style" alt="动态图标">
+            <img id="dynamic-icon" src="./driver.gif" class="map-style" alt="动态图标">
             <br>
-            <span id="current-status">当前: normal.gif</span>
+            <span id="current-status">当前: driver.gif (替代normal.gif测试)</span>
         </div>
         
         <div style="text-align: center;">
@@ -216,7 +216,7 @@
             const statusElement = document.getElementById('current-status');
             
             const icons = {
-                'normal': './normal.gif',
+                'normal': './driver.gif',  // 临时使用driver.gif替代normal.gif测试
                 'late': './late.gif', 
                 'rain': './rain.gif',
                 'driver': './driver.gif'
@@ -259,7 +259,7 @@
             // 为动态图标启用循环管理
             const dynamicIcon = document.getElementById('dynamic-icon');
             if (dynamicIcon) {
-                testGifManager.registerGif(dynamicIcon, './normal.gif');
+                testGifManager.registerGif(dynamicIcon, './driver.gif'); // 临时使用driver.gif测试
             }
         });
         
