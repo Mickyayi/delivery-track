@@ -490,9 +490,36 @@ async function getWeatherData(lat, lng) {
     }
 }
 
-// 获取司机图标URL
+// 获取司机图标URL - 增强GIF加载
 function getDriverIconUrl(iconType) {
-    return DRIVER_ICONS[iconType] || DRIVER_ICONS.fallback;
+    const iconUrl = DRIVER_ICONS[iconType] || DRIVER_ICONS.fallback;
+    
+    // 确保GIF文件正确加载，添加缓存清除参数（在开发阶段）
+    if (iconUrl.endsWith('.gif')) {
+        // 预加载GIF以确保动画正常播放
+        preloadGifImage(iconUrl);
+    }
+    
+    return iconUrl;
+}
+
+// 预加载GIF图像以确保动画播放
+function preloadGifImage(url) {
+    if (!window.preloadedGifs) {
+        window.preloadedGifs = new Set();
+    }
+    
+    if (!window.preloadedGifs.has(url)) {
+        const img = new Image();
+        img.onload = () => {
+            console.log(`✅ GIF预加载成功: ${url}`);
+            window.preloadedGifs.add(url);
+        };
+        img.onerror = () => {
+            console.warn(`❌ GIF加载失败: ${url}`);
+        };
+        img.src = url;
+    }
 }
 
 // 司机位置相关函数
@@ -629,9 +656,14 @@ async function displayDriverMap(orderId, driverData, deliveryAddress, iconType =
     // 创建司机标记 (使用智能动态图标)
     const iconUrl = getDriverIconUrl(iconType);
     const driverIcon = L.divIcon({
-        html: `<img src="${iconUrl}" style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white;">`,
+        html: `<img src="${iconUrl}" 
+               style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
+               alt="${getDriverStatusText(iconType)}"
+               onload="this.style.opacity='1';" 
+               onerror="console.warn('司机图标加载失败:', this.src);">`,
         iconSize: [70, 70],
-        className: 'driver-marker'
+        className: 'driver-marker',
+        iconAnchor: [35, 35]
     });
     
     const driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
@@ -832,9 +864,14 @@ function updateDriverMarker(mapData, newDriverData, newIconType) {
         if (newIconType && newIconType !== currentIconType) {
             const newIconUrl = getDriverIconUrl(newIconType);
             const newIcon = L.divIcon({
-                html: `<img src="${newIconUrl}" style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white;">`,
+                html: `<img src="${newIconUrl}" 
+                       style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
+                       alt="${getDriverStatusText(newIconType)}"
+                       onload="this.style.opacity='1';" 
+                       onerror="console.warn('司机图标更新失败:', this.src);">`,
                 iconSize: [70, 70],
-                className: 'driver-marker'
+                className: 'driver-marker',
+                iconAnchor: [35, 35]
             });
             driverMarker.setIcon(newIcon);
         }
