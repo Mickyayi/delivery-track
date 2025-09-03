@@ -131,6 +131,94 @@ export default {
         }
       }
 
+      // 处理天气查询请求
+      if (request.method === 'GET' && url.pathname.startsWith('/weather/')) {
+        try {
+          const pathParts = url.pathname.split('/');
+          if (pathParts.length < 4) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "缺少经纬度参数"
+            }), { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const lat = parseFloat(pathParts[2]);
+          const lng = parseFloat(pathParts[3]);
+          
+          if (isNaN(lat) || isNaN(lng)) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "无效的经纬度参数"
+            }), { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // 检查环境变量中的天气API配置
+          if (!env.WEATHER_API_KEY) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "天气API未配置",
+              isRaining: false // 默认非雨天
+            }), { 
+              status: 200, // 返回200但标记为未配置
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // 调用OpenWeatherMap API
+          const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${env.WEATHER_API_KEY}&units=metric`;
+          
+          const weatherResponse = await fetch(weatherUrl);
+          if (!weatherResponse.ok) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "天气API调用失败",
+              isRaining: false
+            }), { 
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const weatherData = await weatherResponse.json();
+          
+          // 检查是否下雨 (rain, drizzle, thunderstorm)
+          const weatherMain = weatherData.weather?.[0]?.main?.toLowerCase() || '';
+          const isRaining = ['rain', 'drizzle', 'thunderstorm'].includes(weatherMain);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            isRaining: isRaining,
+            weather: weatherData.weather?.[0]?.main || 'Unknown',
+            description: weatherData.weather?.[0]?.description || '',
+            temperature: weatherData.main?.temp || null,
+            location: weatherData.name || `${lat},${lng}`
+          }), {
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=1800' // 缓存30分钟
+            }
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: "天气查询服务异常",
+            isRaining: false,
+            details: error.message
+          }), { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // 处理Google Maps API代理请求
       if (request.method === 'GET' && url.pathname.startsWith('/maps/')) {
         try {

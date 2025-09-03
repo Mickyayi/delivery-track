@@ -17,12 +17,19 @@
 - **司机信息**：配送司机姓名和联系电话
 - **订单备注**：特殊配送要求或说明
 
-### 🗺️ 司机实时位置追踪 ⭐ 新功能
+### 🗺️ 司机实时位置追踪 ⭐ 核心功能
 - **实时地图**：正在配送的订单显示司机当前位置
-- **双标记系统**：蓝色卡车图标显示司机位置，红色房子图标显示配送地址
+- **双标记系统**：动态司机图标 + 红色房子配送地址标记
 - **自动更新**：每30秒自动刷新司机位置
 - **位置时间戳**：显示位置最后更新时间
 - **智能地图视角**：自动调整地图范围以显示司机和目的地
+
+### 🎯 智能司机状态识别 ⭐ 最新功能
+- **动态图标系统**：根据司机表现和天气自动切换图标
+- **配送表现分析**：实时分析司机最近配送延误情况
+- **天气感知识别**：自动检测司机位置天气状况
+- **智能优先级**：雨天 > 延误 > 正常状态的判断逻辑
+- **状态实时显示**：地图标记和状态标签同步更新
 
 ### 🎨 用户体验
 - **响应式设计**：支持手机、平板、桌面设备
@@ -54,8 +61,9 @@
 - **API端点**：Cloudflare Worker (`https://delivery-track-api.haofreshbne.workers.dev`)
 - **订单查询**：POST `/track-order` (无需认证)
 - **司机位置**：GET `/driver-location/{route_id}` (需要API密钥)
+- **天气查询**：GET `/weather/{lat}/{lng}` (新增)
 - **数据格式**：JSON
-- **环境变量**：BACKEND_URL, API_KEY, GOOGLE_MAPS_API_KEY
+- **环境变量**：BACKEND_URL, API_KEY, GOOGLE_MAPS_API_KEY, WEATHER_API_KEY
 
 ### 状态系统
 支持以下订单状态：
@@ -72,8 +80,12 @@
 ```
 delivery-track/
 ├── index.html          # 主页面文件 (包含Leaflet地图库)
-├── app.js              # JavaScript逻辑 (包含地图和位置追踪功能)
-├── backend workers.js  # Cloudflare Worker代码
+├── app.js              # JavaScript逻辑 (包含智能司机图标功能)
+├── backend workers.js  # Cloudflare Worker代码 (包含天气API)
+├── normal.gif          # 正常配送司机图标
+├── late.gif            # 延误司机图标
+├── rain.gif            # 雨天司机图标
+├── driver.gif          # 备用司机图标 (向后兼容)
 ├── logo2.jpg           # 好鲜生Logo
 ├── theman.GIF          # 加载动画
 └── README.md           # 项目文档
@@ -85,11 +97,12 @@ delivery-track/
 1. **访问查询页面**：打开 `delivery-track.pages.dev`
 2. **输入手机号**：输入下单时的收件人手机号
 3. **查看订单状态**：系统显示正在配送中的订单
-4. **实时位置追踪**：如果订单状态为"正在配送"，会自动显示：
-   - 司机当前位置（蓝色卡车图标）
+4. **智能司机追踪**：如果订单状态为"正在配送"，会自动显示：
+   - 司机当前位置（智能动态图标）
    - 配送目的地（红色房子图标）
+   - 司机状态标签（正常/延误/雨天）
    - 位置最后更新时间
-   - 每30秒自动刷新位置
+   - 每30秒自动刷新位置和状态
 
 ### 部署配置
 
@@ -104,6 +117,7 @@ delivery-track/
    - `BACKEND_URL` = 你的后端API地址
    - `API_KEY` = API访问密钥
    - `GOOGLE_MAPS_API_KEY` = Google Maps API密钥（推荐）
+   - `WEATHER_API_KEY` = OpenWeatherMap API密钥（智能图标功能）
 
 #### Google Maps API设置（推荐）
 1. 访问 [Google Cloud Console](https://console.cloud.google.com/)
@@ -113,6 +127,12 @@ delivery-track/
 3. 创建API密钥并设置使用限制
 4. 将密钥添加到Worker环境变量
 5. **注意**：没有Google Maps API时会自动使用免费的Leaflet地图
+
+#### OpenWeatherMap API设置（智能图标功能）
+1. 访问 [OpenWeatherMap](https://openweathermap.org/api)
+2. 免费注册账户（每日1000次免费调用）
+3. 获取API密钥并添加到Worker环境变量
+4. **注意**：没有天气API时司机图标将根据配送表现显示
 
 ### 集成示例
 支持URL参数自动填充：
@@ -141,7 +161,8 @@ https://delivery-track.pages.dev?phone=0412345678
 ```
 
 ### API接口要求
-后端需要提供的API响应格式：
+
+#### 订单查询API响应格式：
 ```json
 {
     "success": true,
@@ -154,6 +175,7 @@ https://delivery-track.pages.dev?phone=0412345678
             "recipient_suburb": "Brisbane",
             "estimated_arrival_time": "2025-01-20T14:30:00Z",
             "actual_arrival_time": null,
+            "route_id": "ROUTE789",
             "driver_info": {
                 "name": "李师傅",
                 "phone": "0412345678"
@@ -164,10 +186,25 @@ https://delivery-track.pages.dev?phone=0412345678
 }
 ```
 
+#### 司机位置API响应格式（新增智能功能字段）：
+```json
+{
+    "current_latitude": "-27.4698",
+    "current_longitude": "153.0251",
+    "driver_name": "李师傅",
+    "driver_id": "DRV001",
+    "last_location_update": "2025-01-20T14:45:00Z",
+    "recent_delivery_performance": {
+        "last_completed_order_delay_minutes": 20
+    }
+}
+```
+
 ## 🛠️ 待开发功能
 
 ### 短期计划
 - [x] ~~订单地图显示~~ ✅ 已完成 (使用Leaflet + OpenStreetMap)
+- [x] ~~智能司机图标系统~~ ✅ 已完成 (天气感知 + 配送表现分析)
 - [ ] 推送通知（浏览器通知API）
 - [ ] 配送路径实时追踪（显示司机行驶路线）
 - [ ] 多语言支持（英文版本）
@@ -195,7 +232,15 @@ https://delivery-track.pages.dev?phone=0412345678
 
 ## 🔄 更新日志
 
-### v2.0.0 (当前版本) - 司机实时位置追踪
+### v3.0.0 (当前版本) - 智能司机状态识别
+- ✅ **智能司机图标** - 根据天气和配送表现动态显示图标
+- ✅ **天气感知系统** - 实时检测司机位置天气状况
+- ✅ **配送表现分析** - 分析司机延误情况智能提醒
+- ✅ **状态优先级算法** - 雨天 > 延误 > 正常的智能判断
+- ✅ **用户界面增强** - 状态标签和图例说明
+- ✅ **缓存优化机制** - 减少API调用提升性能
+
+### v2.0.0 - 司机实时位置追踪
 - ✅ **司机实时位置追踪** - 正在配送订单显示司机当前位置
 - ✅ **交互式地图** - 使用Leaflet显示司机位置和配送地址
 - ✅ **自动位置更新** - 每30秒自动刷新司机位置
