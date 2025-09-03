@@ -161,6 +161,56 @@
     </div>
 
     <script>
+        // GIF循环播放管理器（测试版本）
+        class TestGifLoopManager {
+            constructor() {
+                this.gifElements = new Map();
+                this.loopInterval = 3000; // 3秒重新加载一次
+            }
+            
+            registerGif(element, gifUrl) {
+                if (!element || !gifUrl) return;
+                
+                if (this.gifElements.has(element)) {
+                    const oldTimer = this.gifElements.get(element);
+                    if (oldTimer) clearInterval(oldTimer);
+                }
+                
+                const timer = setInterval(() => {
+                    this.reloadGif(element, gifUrl);
+                }, this.loopInterval);
+                
+                this.gifElements.set(element, timer);
+                console.log(`🔄 测试GIF循环管理器已注册: ${gifUrl}`);
+            }
+            
+            reloadGif(element, gifUrl) {
+                if (!element || !element.src) return;
+                
+                try {
+                    const timestamp = new Date().getTime();
+                    const newSrc = gifUrl.includes('?') 
+                        ? `${gifUrl}&reload=${timestamp}` 
+                        : `${gifUrl}?reload=${timestamp}`;
+                    
+                    element.src = newSrc;
+                    console.log(`🔄 测试GIF重新加载: ${gifUrl}`);
+                } catch (error) {
+                    console.warn('测试GIF重新加载失败:', error);
+                }
+            }
+            
+            cleanup() {
+                this.gifElements.forEach(timer => {
+                    if (timer) clearInterval(timer);
+                });
+                this.gifElements.clear();
+            }
+        }
+        
+        // 创建测试管理器实例
+        const testGifManager = new TestGifLoopManager();
+        
         function switchIcon(type) {
             const iconElement = document.getElementById('dynamic-icon');
             const statusElement = document.getElementById('current-status');
@@ -178,11 +228,14 @@
                 iconElement.src = icons[type] + '?t=' + timestamp;
                 statusElement.textContent = `当前: ${type}.gif`;
                 
+                // 注册到循环管理器
+                testGifManager.registerGif(iconElement, icons[type]);
+                
                 console.log(`切换到: ${type}.gif`);
             }
         }
         
-        // 页面加载时检查图片
+        // 页面加载时检查图片并启用循环管理
         window.addEventListener('load', function() {
             const images = document.querySelectorAll('img[src$=".gif"]');
             console.log(`📊 检测到 ${images.length} 个GIF图片`);
@@ -190,12 +243,29 @@
             images.forEach((img, index) => {
                 img.addEventListener('load', function() {
                     console.log(`✅ GIF加载成功: ${this.src}`);
+                    
+                    // 为所有GIF启用循环管理（除了动态测试的那个）
+                    if (this.id !== 'dynamic-icon') {
+                        const originalSrc = this.src.split('?')[0]; // 移除时间戳参数
+                        testGifManager.registerGif(this, originalSrc);
+                    }
                 });
                 
                 img.addEventListener('error', function() {
                     console.error(`❌ GIF加载失败: ${this.src}`);
                 });
             });
+            
+            // 为动态图标启用循环管理
+            const dynamicIcon = document.getElementById('dynamic-icon');
+            if (dynamicIcon) {
+                testGifManager.registerGif(dynamicIcon, './normal.gif');
+            }
+        });
+        
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', function() {
+            testGifManager.cleanup();
         });
     </script>
 </body>

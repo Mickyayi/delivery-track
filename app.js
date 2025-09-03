@@ -522,6 +522,71 @@ function preloadGifImage(url) {
     }
 }
 
+// GIF循环播放管理器
+class GifLoopManager {
+    constructor() {
+        this.gifElements = new Map(); // 存储GIF元素和其重载计时器
+        this.loopInterval = 3000; // 3秒重新加载一次GIF（可调整）
+    }
+    
+    // 注册GIF元素进行循环管理
+    registerGif(element, gifUrl) {
+        if (!element || !gifUrl) return;
+        
+        // 清除旧的计时器
+        if (this.gifElements.has(element)) {
+            const oldTimer = this.gifElements.get(element);
+            if (oldTimer) clearInterval(oldTimer);
+        }
+        
+        // 创建新的循环计时器
+        const timer = setInterval(() => {
+            this.reloadGif(element, gifUrl);
+        }, this.loopInterval);
+        
+        this.gifElements.set(element, timer);
+        console.log(`🔄 GIF循环管理器已注册: ${gifUrl}`);
+    }
+    
+    // 重新加载GIF以重启动画
+    reloadGif(element, gifUrl) {
+        if (!element || !element.src) return;
+        
+        try {
+            // 添加时间戳强制重新加载
+            const timestamp = new Date().getTime();
+            const newSrc = gifUrl.includes('?') 
+                ? `${gifUrl}&reload=${timestamp}` 
+                : `${gifUrl}?reload=${timestamp}`;
+            
+            element.src = newSrc;
+            console.log(`🔄 GIF重新加载: ${gifUrl}`);
+        } catch (error) {
+            console.warn('GIF重新加载失败:', error);
+        }
+    }
+    
+    // 取消注册GIF元素
+    unregisterGif(element) {
+        if (this.gifElements.has(element)) {
+            const timer = this.gifElements.get(element);
+            if (timer) clearInterval(timer);
+            this.gifElements.delete(element);
+        }
+    }
+    
+    // 清理所有计时器
+    cleanup() {
+        this.gifElements.forEach(timer => {
+            if (timer) clearInterval(timer);
+        });
+        this.gifElements.clear();
+    }
+}
+
+// 全局GIF循环管理器实例
+window.gifLoopManager = new GifLoopManager();
+
 // 司机位置相关函数
 async function loadDriverLocation(orderId, routeId, deliveryAddress) {
     try {
@@ -655,11 +720,12 @@ async function displayDriverMap(orderId, driverData, deliveryAddress, iconType =
     
     // 创建司机标记 (使用智能动态图标)
     const iconUrl = getDriverIconUrl(iconType);
+    const uniqueId = `driver-icon-${Date.now()}-${Math.random()}`;
     const driverIcon = L.divIcon({
-        html: `<img src="${iconUrl}" 
+        html: `<img id="${uniqueId}" src="${iconUrl}" 
                style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
                alt="${getDriverStatusText(iconType)}"
-               onload="this.style.opacity='1';" 
+               onload="this.style.opacity='1'; window.gifLoopManager && window.gifLoopManager.registerGif(this, '${iconUrl}');" 
                onerror="console.warn('司机图标加载失败:', this.src);">`,
         iconSize: [70, 70],
         className: 'driver-marker',
@@ -863,11 +929,12 @@ function updateDriverMarker(mapData, newDriverData, newIconType) {
         // 如果图标类型发生变化，更新图标
         if (newIconType && newIconType !== currentIconType) {
             const newIconUrl = getDriverIconUrl(newIconType);
+            const newUniqueId = `driver-icon-${Date.now()}-${Math.random()}`;
             const newIcon = L.divIcon({
-                html: `<img src="${newIconUrl}" 
+                html: `<img id="${newUniqueId}" src="${newIconUrl}" 
                        style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
                        alt="${getDriverStatusText(newIconType)}"
-                       onload="this.style.opacity='1';" 
+                       onload="this.style.opacity='1'; window.gifLoopManager && window.gifLoopManager.registerGif(this, '${newIconUrl}');" 
                        onerror="console.warn('司机图标更新失败:', this.src);">`,
                 iconSize: [70, 70],
                 className: 'driver-marker',
@@ -1060,6 +1127,11 @@ function cleanupMapsAndIntervals() {
         clearInterval(intervalId);
     });
     locationUpdateIntervals.clear();
+    
+    // 清理GIF循环管理器
+    if (window.gifLoopManager) {
+        window.gifLoopManager.cleanup();
+    }
     
     // 清理缓存
     driverIconCache.clear();
