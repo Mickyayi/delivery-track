@@ -42,7 +42,7 @@ let googleMapsLoading = false; // Google Maps API加载中状态
 
 // 智能司机图标配置
 const DRIVER_ICONS = {
-    normal: './driver.gif',    // 临时使用driver.gif测试 - 原本是./normal.gif
+    normal: './normal.gif',    // 正常配送状态
     late: './late.gif',        // 延误状态
     rain: './rain.gif',        // 雨天状态
     fallback: './driver.gif'   // 备用图标（向后兼容）
@@ -490,102 +490,10 @@ async function getWeatherData(lat, lng) {
     }
 }
 
-// 获取司机图标URL - 增强GIF加载
+// 获取司机图标URL
 function getDriverIconUrl(iconType) {
-    const iconUrl = DRIVER_ICONS[iconType] || DRIVER_ICONS.fallback;
-    
-    // 确保GIF文件正确加载，添加缓存清除参数（在开发阶段）
-    if (iconUrl.endsWith('.gif')) {
-        // 预加载GIF以确保动画正常播放
-        preloadGifImage(iconUrl);
-    }
-    
-    return iconUrl;
+    return DRIVER_ICONS[iconType] || DRIVER_ICONS.fallback;
 }
-
-// 预加载GIF图像以确保动画播放
-function preloadGifImage(url) {
-    if (!window.preloadedGifs) {
-        window.preloadedGifs = new Set();
-    }
-    
-    if (!window.preloadedGifs.has(url)) {
-        const img = new Image();
-        img.onload = () => {
-            console.log(`✅ GIF预加载成功: ${url}`);
-            window.preloadedGifs.add(url);
-        };
-        img.onerror = () => {
-            console.warn(`❌ GIF加载失败: ${url}`);
-        };
-        img.src = url;
-    }
-}
-
-// GIF循环播放管理器
-class GifLoopManager {
-    constructor() {
-        this.gifElements = new Map(); // 存储GIF元素和其重载计时器
-        this.loopInterval = 3000; // 3秒重新加载一次GIF（可调整）
-    }
-    
-    // 注册GIF元素进行循环管理
-    registerGif(element, gifUrl) {
-        if (!element || !gifUrl) return;
-        
-        // 清除旧的计时器
-        if (this.gifElements.has(element)) {
-            const oldTimer = this.gifElements.get(element);
-            if (oldTimer) clearInterval(oldTimer);
-        }
-        
-        // 创建新的循环计时器
-        const timer = setInterval(() => {
-            this.reloadGif(element, gifUrl);
-        }, this.loopInterval);
-        
-        this.gifElements.set(element, timer);
-        console.log(`🔄 GIF循环管理器已注册: ${gifUrl}`);
-    }
-    
-    // 重新加载GIF以重启动画
-    reloadGif(element, gifUrl) {
-        if (!element || !element.src) return;
-        
-        try {
-            // 添加时间戳强制重新加载
-            const timestamp = new Date().getTime();
-            const newSrc = gifUrl.includes('?') 
-                ? `${gifUrl}&reload=${timestamp}` 
-                : `${gifUrl}?reload=${timestamp}`;
-            
-            element.src = newSrc;
-            console.log(`🔄 GIF重新加载: ${gifUrl}`);
-        } catch (error) {
-            console.warn('GIF重新加载失败:', error);
-        }
-    }
-    
-    // 取消注册GIF元素
-    unregisterGif(element) {
-        if (this.gifElements.has(element)) {
-            const timer = this.gifElements.get(element);
-            if (timer) clearInterval(timer);
-            this.gifElements.delete(element);
-        }
-    }
-    
-    // 清理所有计时器
-    cleanup() {
-        this.gifElements.forEach(timer => {
-            if (timer) clearInterval(timer);
-        });
-        this.gifElements.clear();
-    }
-}
-
-// 全局GIF循环管理器实例
-window.gifLoopManager = new GifLoopManager();
 
 // 司机位置相关函数
 async function loadDriverLocation(orderId, routeId, deliveryAddress) {
@@ -720,16 +628,10 @@ async function displayDriverMap(orderId, driverData, deliveryAddress, iconType =
     
     // 创建司机标记 (使用智能动态图标)
     const iconUrl = getDriverIconUrl(iconType);
-    const uniqueId = `driver-icon-${Date.now()}-${Math.random()}`;
     const driverIcon = L.divIcon({
-        html: `<img id="${uniqueId}" src="${iconUrl}" 
-               style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
-               alt="${getDriverStatusText(iconType)}"
-               onload="this.style.opacity='1'; window.gifLoopManager && window.gifLoopManager.registerGif(this, '${iconUrl}');" 
-               onerror="console.warn('司机图标加载失败:', this.src);">`,
-        iconSize: [70, 70],
-        className: 'driver-marker',
-        iconAnchor: [35, 35]
+        html: `<img src="${iconUrl}" style="width: 105px; height: 105px; border-radius: 50%; border: 3px solid white;">`,
+        iconSize: [105, 105],
+        className: 'driver-marker'
     });
     
     const driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
@@ -809,8 +711,8 @@ async function displayGoogleMap(orderId, driverData, deliveryAddress, mapContain
         title: driverData.driver_name || '配送司机',
         icon: {
             url: iconUrl,  // 使用智能选择的图标
-            scaledSize: new google.maps.Size(70, 70),  // 调整为70x70像素，最佳尺寸
-            anchor: new google.maps.Point(35, 35)
+            scaledSize: new google.maps.Size(105, 105),  // 放大1.5倍到105x105像素
+            anchor: new google.maps.Point(52.5, 52.5)
         }
     });
     
@@ -904,8 +806,8 @@ function updateDriverMarker(mapData, newDriverData, newIconType) {
             const newIconUrl = getDriverIconUrl(newIconType);
             driverMarker.setIcon({
                 url: newIconUrl,
-                scaledSize: new google.maps.Size(70, 70),
-                anchor: new google.maps.Point(35, 35)
+                scaledSize: new google.maps.Size(105, 105),
+                anchor: new google.maps.Point(52.5, 52.5)
             });
         }
         
@@ -929,16 +831,10 @@ function updateDriverMarker(mapData, newDriverData, newIconType) {
         // 如果图标类型发生变化，更新图标
         if (newIconType && newIconType !== currentIconType) {
             const newIconUrl = getDriverIconUrl(newIconType);
-            const newUniqueId = `driver-icon-${Date.now()}-${Math.random()}`;
             const newIcon = L.divIcon({
-                html: `<img id="${newUniqueId}" src="${newIconUrl}" 
-                       style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; display: block;" 
-                       alt="${getDriverStatusText(newIconType)}"
-                       onload="this.style.opacity='1'; window.gifLoopManager && window.gifLoopManager.registerGif(this, '${newIconUrl}');" 
-                       onerror="console.warn('司机图标更新失败:', this.src);">`,
-                iconSize: [70, 70],
-                className: 'driver-marker',
-                iconAnchor: [35, 35]
+                html: `<img src="${newIconUrl}" style="width: 105px; height: 105px; border-radius: 50%; border: 3px solid white;">`,
+                iconSize: [105, 105],
+                className: 'driver-marker'
             });
             driverMarker.setIcon(newIcon);
         }
@@ -1127,11 +1023,6 @@ function cleanupMapsAndIntervals() {
         clearInterval(intervalId);
     });
     locationUpdateIntervals.clear();
-    
-    // 清理GIF循环管理器
-    if (window.gifLoopManager) {
-        window.gifLoopManager.cleanup();
-    }
     
     // 清理缓存
     driverIconCache.clear();
